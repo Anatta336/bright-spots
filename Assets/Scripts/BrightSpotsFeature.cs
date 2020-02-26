@@ -8,10 +8,9 @@ public class BrightSpotsFeature : ScriptableRendererFeature
   {
     // we're free to put whatever we want here, public fields will be exposed in the inspector
     public bool IsEnabled = true;
-    public RenderPassEvent WhenToInsert = RenderPassEvent.AfterRendering;
+    public RenderPassEvent WhenToInsert = RenderPassEvent.BeforeRenderingSkybox;
     public ComputeShader BrightsCompute;
     public Material FlareMaterial;
-    public RenderTexture RenderTexture;
     public bool DrawDirect = true;
     public bool DrawIndirect = true;
 
@@ -25,11 +24,6 @@ public class BrightSpotsFeature : ScriptableRendererFeature
   RenderTargetHandle renderTextureHandle;
   BrightSpotsPass myRenderPass;
 
-  void OnEnable()
-  {
-    Debug.Log("ENABLE BrightSpotsFeature");
-  }
-
   public override void Create()
   {
     Debug.Log("Create() BrightSpotsFeature");
@@ -38,8 +32,7 @@ public class BrightSpotsFeature : ScriptableRendererFeature
       "Bright Spots",
       settings.WhenToInsert,
       settings.BrightsCompute,
-      settings.FlareMaterial,
-      settings.RenderTexture
+      settings.FlareMaterial
     );
   }
   

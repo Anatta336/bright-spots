@@ -32,7 +32,7 @@ BrightQuad MakeBrightQuad(int2 positionTexel, float3 colour)
     (float(positionTexel.x) / _textureSizeX) * 2.0 - 1.0,
     (1.0 - (float(positionTexel.y) / _textureSizeY)) * 2.0 - 1.0
   );
-  float2 size = float2(0.15, 0.05);
+  float2 size = float2(0.8, 0.8);
   BrightQuad p;
 
   p.v0 = mid + float2(-size.x,  size.y);
