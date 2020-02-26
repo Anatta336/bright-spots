@@ -1,4 +1,5 @@
-#define GROUP_SIZE 32
+// note that GROUP_SIZE has a significant impact on how the results look
+#define GROUP_SIZE 12
 
 #include "BrightQuad.hlsl"
 
@@ -53,61 +54,55 @@ groupshared uint brightestLuminanceUint = 0;
 groupshared float3 colourOfBrightest;
 groupshared int2 texelPosOfBrightest;
 
+groupshared float cachedLuminance[GROUP_SIZE][GROUP_SIZE];
+groupshared float3 cachedColour[GROUP_SIZE][GROUP_SIZE];
+
 #define LUMINANCE_TO_UINT 10000000
 
 #pragma kernel FindBrights
 [numthreads(GROUP_SIZE, GROUP_SIZE, 1)]
 void FindBrights (uint3 globalId : SV_DispatchThreadID, uint3 localId : SV_GroupThreadID, uint3 groupId : SV_GroupID)
 {
-  // every pixel gets its luminance calculated
-  float3 colour = _colourTex[globalId.xy];
-  float luminance = CalculateLuminance(colour);
+  // every pixel gets its luminance calculated and stored by a thread each
+  float3 colourHere = _colourTex[globalId.xy];
+  float luminanceHere = CalculateLuminance(colourHere);
+  cachedColour[localId.x][localId.y] = colourHere;
+  cachedLuminance[localId.x][localId.y] = luminanceHere;
 
-  uint targetUint = uint(_luminanceThreshold * LUMINANCE_TO_UINT);
+  // wait for everyone to write to cache
+  GroupMemoryBarrier();
 
-  // InterlockedMax is a shader model 5 function that performs an atomic maximum.
-  // It can only operate on UInt and Int, so we have to convert our float value
-  uint luminanceUint = uint(luminance * LUMINANCE_TO_UINT);
-  bool isBrightHere = luminanceUint > targetUint;
-  if (isBrightHere)
+  // all but one thread will stop here
+  if (!(localId.x == 0 && localId.y == 0))
   {
-    InterlockedMax(brightestLuminanceUint, luminanceUint);
-  }
-
-  // wait for all threads in this group to have their attempt at setting greatest luminance
-  GroupMemoryBarrierWithGroupSync();
-
-  if (luminanceUint == brightestLuminanceUint && isBrightHere)
-  {
-    // this thread's pixel was the brightest - or joint brightest.
-    // in case of joint brightest it's arbitrary which pixel will "win", which may cause flicker.
-    // colourOfBrightest = colour;
-    // texelPosOfBrightest = globalId.xy;
-
-    _brightQuads.Append(
-      MakeBrightQuad(
-        globalId.xy,
-        colour)
-    );
-  }
-  /*
-  // wait again, don't want to run ahead before details of brightest has been set
-  GroupMemoryBarrierWithGroupSync();
-
-  if (!all(localId == uint3(0, 0, 0)))
-  {
-    // all but one thread in the group will stop here
     return;
   }
-
-  if (brightestLuminanceUint > uint(_luminanceThreshold * LUMINANCE_TO_UINT))
+  
+  // the one remaining thread finds the highest luminance in the group
+  bool foundBright = false;
+  float brightest = _luminanceThreshold;
+  float3 brightestColour;
+  int2 brightestLocation;
+  for (int y = 0; y < GROUP_SIZE; ++y)
+  for (int x = 0; x < GROUP_SIZE; ++x)
   {
-    // if there is a bright enough pixel in the group, generate a BrightQuad for it
-    _brightQuads.Append(
-      MakeBrightQuad(
-        texelPosOfBrightest,
-        colourOfBrightest)
-    );
+    float luminance = cachedLuminance[x][y];
+    if (luminance > brightest)
+    {
+      foundBright = true;
+      brightest = luminance;
+      brightestColour = cachedColour[x][y];
+      brightestLocation = int2(x, y);
+    }
   }
-  */
+
+  if (foundBright)
+  {
+    _brightQuads.Append(MakeBrightQuad(
+      int2(
+        groupId.x * GROUP_SIZE + brightestLocation.x,
+        groupId.y * GROUP_SIZE + brightestLocation.y),
+      brightestColour
+    ));
+  }
 }
