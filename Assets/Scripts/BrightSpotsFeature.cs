@@ -54,6 +54,9 @@ public class BrightSpotsFeature : ScriptableRendererFeature
       settings.DrawIndirect
     );
 
+    //TODO: split into a sampling and a drawing pass
+    // sample before skybox, draw before post-process
+
     // Ask the renderer to add our pass.
     // Could queue up multiple passes and/or pick passes to use
     renderer.EnqueuePass(myRenderPass);

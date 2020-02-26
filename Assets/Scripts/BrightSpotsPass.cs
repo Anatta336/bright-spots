@@ -30,6 +30,8 @@ class BrightSpotsPass : ScriptableRenderPass
     luminanceThresholdID;
   int groupSizeX, groupSizeY;
 
+  RenderTexture tempRT;
+
   public BrightSpotsPass(string profilerTag,
     RenderPassEvent renderPassEvent, ComputeShader brightsCompute,
     Material flareMaterial)
@@ -96,8 +98,7 @@ class BrightSpotsPass : ScriptableRenderPass
 
     // compute shader to find bright pixels anywhere on the image
     // when it finds a bright pixel, build the vertices of a two triangle mesh in brightsBuffer
-    
-    //TODO: rather than running on full resolution display colour 
+
     cmd.SetComputeTextureParam(brightsCompute, findBrightsKernel, colourTexID, cameraColorIdent);
     cmd.SetComputeIntParam(brightsCompute, textureSizeXID, cameraTextureDescriptor.width);
     cmd.SetComputeIntParam(brightsCompute, textureSizeYID, cameraTextureDescriptor.height);

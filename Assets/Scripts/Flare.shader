@@ -110,7 +110,7 @@ Shader "Custom/Flare"
       {
         float3 tex = _flareSprite.Sample(sampler_flareSprite, i.uv).xxx;
         tex *= i.colour;
-        tex *= 0.002;
+        tex *= 0.1;
         return float4(tex, 1.0);
       }
       ENDHLSL
