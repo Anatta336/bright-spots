@@ -1,0 +1,66 @@
+#define GROUP_SIZE 32
+
+#include "BrightQuad.hlsl"
+
+Texture2D<float3> _colourTex;
+int _textureSizeX;
+int _textureSizeY;
+AppendStructuredBuffer<BrightQuad> _brightQuads;
+float _luminanceThreshold;
+
+float CalculateLuminance(float3 colourLinear)
+{
+  return colourLinear.x * 0.2126 +
+    colourLinear.y * 0.7152 +
+    colourLinear.z * 0.0722;
+}
+
+BrightQuad MakeBrightQuad(int2 positionTexel)
+{
+  /*
+    v0 ──── v1,v4
+    │      ╱ │
+    │     ╱  │
+    │    ╱   │
+    │   ╱    │
+    │  ╱     │
+    │ ╱      │
+  v2,v3 ───  v5
+  */
+
+  float2 mid = float2(
+    (float(positionTexel.x) / _textureSizeX) * 2.0 - 1.0,
+    (1.0 - (float(positionTexel.y) / _textureSizeY)) * 2.0 - 1.0
+  );
+  float2 size = float2(0.15, 0.05);
+  BrightQuad p;
+
+  //TODO: y may be inverted here, check that
+  p.v0 = mid + float2(-size.x,  size.y);
+  p.v1 = mid + float2( size.x,  size.y);
+  p.v2 = mid + float2(-size.x, -size.y);
+
+  //TEMP: deliberately reversing order of 2nd triangle
+  // p.v3 = mid + float2(-size.x, -size.y);
+  // p.v4 = mid + float2( size.x,  size.y);
+  p.v3 = mid + float2( size.x,  size.y);
+  p.v4 = mid + float2(-size.x, -size.y);
+  p.v5 = mid + float2( size.x, -size.y);
+  p.colour = float3(1.0, 0.4, 0.2);
+  p.padding = 0.0;
+  return p;
+}
+
+#pragma kernel FindBrights
+[numthreads(GROUP_SIZE, GROUP_SIZE, 1)]
+void FindBrights (uint3 id : SV_DispatchThreadID)
+{
+  float3 colour = _colourTex[id.xy];
+  float luminance = CalculateLuminance(colour);
+  if (luminance > _luminanceThreshold)
+  {
+    _brightQuads.Append(
+      MakeBrightQuad(id.xy)
+    );
+  }
+}

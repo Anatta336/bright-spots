@@ -14,17 +14,17 @@ OcclusionCullingSettings:
 RenderSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 9
-  m_Fog: 1
+  m_Fog: 0
   m_FogColor: {r: 0.65080994, g: 0.666729, b: 0.7075472, a: 1}
   m_FogMode: 3
   m_FogDensity: 0.05
   m_LinearFogStart: 0
   m_LinearFogEnd: 300
-  m_AmbientSkyColor: {r: 0.212, g: 0.227, b: 0.259, a: 1}
+  m_AmbientSkyColor: {r: 0.4619082, g: 0.5188535, b: 0.5660378, a: 1}
   m_AmbientEquatorColor: {r: 0.114, g: 0.125, b: 0.133, a: 1}
   m_AmbientGroundColor: {r: 0.047, g: 0.043, b: 0.035, a: 1}
   m_AmbientIntensity: 1
-  m_AmbientMode: 0
+  m_AmbientMode: 3
   m_SubtractiveShadowColor: {r: 0.13296545, g: 0.19145328, b: 0.33962262, a: 1}
   m_SkyboxMaterial: {fileID: 2100000, guid: 0ffaa0b7117ba8c47a9d05ae701d4b4d, type: 2}
   m_HaloStrength: 0.5
@@ -386,8 +386,8 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1687258581}
-  m_LocalRotation: {x: 0.0044841724, y: 0.99290216, z: -0.039751314, w: 0.11200496}
-  m_LocalPosition: {x: 0, y: 0.18, z: 2.188}
+  m_LocalRotation: {x: 0.038252156, y: 0.72636527, z: -0.040559493, w: 0.68504393}
+  m_LocalPosition: {x: -1.104, y: 0.18, z: 0.094}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 0}
@@ -407,7 +407,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_RenderShadows: 1
   m_RequiresDepthTextureOption: 2
-  m_RequiresOpaqueTextureOption: 2
+  m_RequiresOpaqueTextureOption: 0
   m_CameraType: 0
   m_CameraOutput: 0
   m_Cameras: []

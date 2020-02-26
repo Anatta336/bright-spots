@@ -1,29 +1,31 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.Rendering.Universal;
 
-public class MyBlitFeature : ScriptableRendererFeature
+public class MeshFeature : ScriptableRendererFeature
 {
   [System.Serializable]
-  public class MyFeatureSettings
+  public class MeshFeatureSettings
   {
     // we're free to put whatever we want here, public fields will be exposed in the inspector
     public bool IsEnabled = true;
     public RenderPassEvent WhenToInsert = RenderPassEvent.AfterRendering;
-    public Material MaterialToBlit;
+    public Mesh Mesh;
+    public Material Material;
   }
 
   // MUST be named "settings" (lowercase) to be shown in the Render Features inspector
-  public MyFeatureSettings settings = new MyFeatureSettings();
+  public MeshFeatureSettings settings = new MeshFeatureSettings();
 
   RenderTargetHandle renderTextureHandle;
-  MyBlitRenderPass myRenderPass;
+  MeshPass meshPass;
 
   public override void Create()
   {
-    myRenderPass = new MyBlitRenderPass(
-      "My custom pass",
+    meshPass = new MeshPass(
+      "Mesh Feature",
       settings.WhenToInsert,
-      settings.MaterialToBlit
+      settings.Mesh,
+      settings.Material
     );
   }
   
@@ -36,13 +38,14 @@ public class MyBlitFeature : ScriptableRendererFeature
       return;
     }
     
-    // Gather up and pass any extra information our pass will need.
-    // In this case we're getting the camera's color buffer target
-    var cameraColorTargetIdent = renderer.cameraColorTarget;
-    myRenderPass.Setup(cameraColorTargetIdent);
+    // Gather up any extra information our pass will need.
+    meshPass.Setup(
+      renderer.cameraColorTarget,
+      renderer.cameraDepth
+    );
 
     // Ask the renderer to add our pass.
     // Could queue up multiple passes and/or pick passes to use
-    renderer.EnqueuePass(myRenderPass);
+    renderer.EnqueuePass(meshPass);
   }
 }

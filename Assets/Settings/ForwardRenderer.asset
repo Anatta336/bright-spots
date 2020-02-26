@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: ForwardRenderer
   m_EditorClassIdentifier: 
   m_RendererFeatures:
-  - {fileID: 820867761316615746}
+  - {fileID: 3191713835263483193}
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}
   shaders:
     blitPS: {fileID: 4800000, guid: c17132b1f77d20942aa75f8429c0f8bc, type: 3}
@@ -35,7 +35,7 @@ MonoBehaviour:
     passOperation: 0
     failOperation: 0
     zFailOperation: 0
---- !u!114 &820867761316615746
+--- !u!114 &3191713835263483193
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -45,9 +45,12 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c1ced6fce81e55b4bad32b490ad4e55c, type: 3}
-  m_Name: NewMyBlitFeature
+  m_Name: BrightSpots
   m_EditorClassIdentifier: 
   settings:
     IsEnabled: 1
-    WhenToInsert: 1000
-    MaterialToBlit: {fileID: 2100000, guid: 130eabd51def2204f9d6d7dbcbc40a36, type: 2}
+    WhenToInsert: 350
+    BrightsCompute: {fileID: 7200000, guid: c945adddacad82c4abd2f78845e9baad, type: 3}
+    FlareMaterial: {fileID: 2100000, guid: 39ede5230177ffe4d908913aa7282876, type: 2}
+    RenderTexture: {fileID: 8400000, guid: 05ebb8a7fc27f734da938f158057cc5b, type: 2}
+    LuminanceThreshold: 0.86
