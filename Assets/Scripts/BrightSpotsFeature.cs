@@ -12,6 +12,8 @@ public class BrightSpotsFeature : ScriptableRendererFeature
     public ComputeShader BrightsCompute;
     public Material FlareMaterial;
     public RenderTexture RenderTexture;
+    public bool DrawDirect = true;
+    public bool DrawIndirect = true;
 
     [Range(0f, 2f)]
     public float LuminanceThreshold = 0.9f;
@@ -54,7 +56,10 @@ public class BrightSpotsFeature : ScriptableRendererFeature
     myRenderPass.Setup(
       renderer.cameraColorTarget,
       renderer.cameraDepth,
-      settings.LuminanceThreshold);
+      settings.LuminanceThreshold,
+      settings.DrawDirect,
+      settings.DrawIndirect
+    );
 
     // Ask the renderer to add our pass.
     // Could queue up multiple passes and/or pick passes to use

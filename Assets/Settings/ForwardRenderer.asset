@@ -1,5 +1,22 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!114 &-8503037516348773437
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ce50bb1f8ec5624468dbdcb420762acb, type: 3}
+  m_Name: NewMeshFeature
+  m_EditorClassIdentifier: 
+  settings:
+    IsEnabled: 0
+    WhenToInsert: 300
+    Mesh: {fileID: 10208, guid: 0000000000000000e000000000000000, type: 0}
+    Material: {fileID: 2100000, guid: 4e3a8957b658d0848ae97c8e0de4fbe4, type: 2}
 --- !u!114 &11400000
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -14,6 +31,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_RendererFeatures:
   - {fileID: 3191713835263483193}
+  - {fileID: -8503037516348773437}
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}
   shaders:
     blitPS: {fileID: 4800000, guid: c17132b1f77d20942aa75f8429c0f8bc, type: 3}
@@ -53,4 +71,6 @@ MonoBehaviour:
     BrightsCompute: {fileID: 7200000, guid: c945adddacad82c4abd2f78845e9baad, type: 3}
     FlareMaterial: {fileID: 2100000, guid: 39ede5230177ffe4d908913aa7282876, type: 2}
     RenderTexture: {fileID: 8400000, guid: 05ebb8a7fc27f734da938f158057cc5b, type: 2}
+    DrawDirect: 0
+    DrawIndirect: 1
     LuminanceThreshold: 0.86

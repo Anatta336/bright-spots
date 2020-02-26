@@ -15,7 +15,7 @@ float CalculateLuminance(float3 colourLinear)
     colourLinear.z * 0.0722;
 }
 
-BrightQuad MakeBrightQuad(int2 positionTexel)
+BrightQuad MakeBrightQuad(int2 positionTexel, float3 colour)
 {
   /*
     v0 ──── v1,v4
@@ -35,18 +35,15 @@ BrightQuad MakeBrightQuad(int2 positionTexel)
   float2 size = float2(0.15, 0.05);
   BrightQuad p;
 
-  //TODO: y may be inverted here, check that
   p.v0 = mid + float2(-size.x,  size.y);
   p.v1 = mid + float2( size.x,  size.y);
   p.v2 = mid + float2(-size.x, -size.y);
 
-  //TEMP: deliberately reversing order of 2nd triangle
-  // p.v3 = mid + float2(-size.x, -size.y);
-  // p.v4 = mid + float2( size.x,  size.y);
-  p.v3 = mid + float2( size.x,  size.y);
-  p.v4 = mid + float2(-size.x, -size.y);
+  p.v3 = mid + float2(-size.x, -size.y);
+  p.v4 = mid + float2( size.x,  size.y);
   p.v5 = mid + float2( size.x, -size.y);
-  p.colour = float3(1.0, 0.4, 0.2);
+
+  p.colour = colour;
   p.padding = 0.0;
   return p;
 }
@@ -60,7 +57,7 @@ void FindBrights (uint3 id : SV_DispatchThreadID)
   if (luminance > _luminanceThreshold)
   {
     _brightQuads.Append(
-      MakeBrightQuad(id.xy)
+      MakeBrightQuad(id.xy, colour)
     );
   }
 }
