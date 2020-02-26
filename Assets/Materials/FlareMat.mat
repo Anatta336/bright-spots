@@ -86,6 +86,11 @@ Material:
     - _Surface: 0
     - _WorkflowMode: 1
     - _ZWrite: 1
+    - _angle: 0.99
+    - _magnitudeForMax: 4.31
+    - _maxSize: 0.257
+    - _minSize: 0.116
+    - _opacity: 0.012
     m_Colors:
     - _BaseColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
     - _Color: {r: 0.5, g: 0.5, b: 0.5, a: 1}

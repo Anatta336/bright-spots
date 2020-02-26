@@ -18,8 +18,7 @@ class BrightSpotsPass : ScriptableRenderPass
   RenderTargetIdentifier cameraDepthIdent;
   RenderTextureDescriptor cameraTextureDescriptor;
   float luminanceThreshold;
-  bool drawDirect;
-  bool drawIndirect;
+  float angle;
 
   // store these so we only have to look them up once
   int findBrightsKernel,
@@ -27,7 +26,9 @@ class BrightSpotsPass : ScriptableRenderPass
     textureSizeXID,
     textureSizeYID,
     brightQuadsID,
-    luminanceThresholdID;
+    luminanceThresholdID,
+    angleID,
+    widthRatioID;
   int groupSizeX, groupSizeY;
 
   RenderTexture tempRT;
@@ -49,6 +50,8 @@ class BrightSpotsPass : ScriptableRenderPass
     textureSizeYID = Shader.PropertyToID("_textureSizeY");
     brightQuadsID = Shader.PropertyToID("_brightQuads");
     luminanceThresholdID = Shader.PropertyToID("_luminanceThreshold");
+    angleID = Shader.PropertyToID("_angle");
+    widthRatioID = Shader.PropertyToID("_widthRatio");
 
     brightsCompute.GetKernelThreadGroupSizes(findBrightsKernel,
       out uint sizeX, out uint sizeY, out var _);
@@ -73,14 +76,12 @@ class BrightSpotsPass : ScriptableRenderPass
     RenderTargetIdentifier cameraColorIdent,
     RenderTargetIdentifier cameraDepthIdent,
     float luminanceThreshold,
-    bool drawDirect,
-    bool drawIndirect)
+    float angle)
   {
     this.cameraColorIdent = cameraColorIdent;
     this.cameraDepthIdent = cameraDepthIdent;
     this.luminanceThreshold = luminanceThreshold;
-    this.drawDirect = drawDirect;
-    this.drawIndirect = drawIndirect;
+    this.angle = angle;
   }
 
   // called each frame before Execute, use it to set up things the pass will need
@@ -116,9 +117,14 @@ class BrightSpotsPass : ScriptableRenderPass
     // because we were reading from cameraColorIdent, need to set it back to being render target
     cmd.SetRenderTarget(cameraColorIdent);
     
+    // float widthRatio = renderingData.cameraData.cameraTargetDescriptor.width /
+    //   renderingData.cameraData.cameraTargetDescriptor.height;
+
     // draw the quads described by brightsCompute
     MaterialPropertyBlock properties = new MaterialPropertyBlock();
     properties.SetBuffer(brightQuadsID, brightsBuffer);
+    properties.SetFloat(angleID, angle);
+    properties.SetFloat(widthRatioID, renderingData.cameraData.camera.aspect);
     cmd.DrawProceduralIndirect(Matrix4x4.identity, flareMaterial, 0, MeshTopology.Triangles,
       drawArgsBuffer, 0, properties);
 

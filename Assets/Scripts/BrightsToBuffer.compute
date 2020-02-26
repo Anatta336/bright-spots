@@ -16,7 +16,7 @@ float CalculateLuminance(float3 colourLinear)
     colourLinear.z * 0.0722;
 }
 
-BrightQuad MakeBrightQuad(int2 positionTexel, float3 colour)
+BrightQuad MakeBrightQuad(int2 positionTexel, float3 colour, float luminance)
 {
   /*
     v0 ──── v1,v4
@@ -29,23 +29,14 @@ BrightQuad MakeBrightQuad(int2 positionTexel, float3 colour)
   v2,v3 ───  v5
   */
 
-  float2 mid = float2(
+  BrightQuad p;
+  p.middle = float2(
     (float(positionTexel.x) / _textureSizeX) * 2.0 - 1.0,
     (1.0 - (float(positionTexel.y) / _textureSizeY)) * 2.0 - 1.0
   );
-  float2 size = float2(0.1, 0.1);
-  BrightQuad p;
-
-  p.v0 = mid + float2(-size.x,  size.y);
-  p.v1 = mid + float2( size.x,  size.y);
-  p.v2 = mid + float2(-size.x, -size.y);
-
-  p.v3 = mid + float2(-size.x, -size.y);
-  p.v4 = mid + float2( size.x,  size.y);
-  p.v5 = mid + float2( size.x, -size.y);
-
+  p.magnitude = (luminance - _luminanceThreshold) / _luminanceThreshold;
   p.colour = colour;
-  p.padding = 0.0;
+  p.padding = luminance.xx;
   return p;
 }
 
@@ -102,7 +93,8 @@ void FindBrights (uint3 globalId : SV_DispatchThreadID, uint3 localId : SV_Group
       int2(
         groupId.x * GROUP_SIZE + brightestLocation.x,
         groupId.y * GROUP_SIZE + brightestLocation.y),
-      brightestColour
+      brightestColour,
+      brightest
     ));
   }
 }

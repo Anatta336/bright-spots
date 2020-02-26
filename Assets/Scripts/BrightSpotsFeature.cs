@@ -11,8 +11,12 @@ public class BrightSpotsFeature : ScriptableRendererFeature
     public RenderPassEvent WhenToInsert = RenderPassEvent.BeforeRenderingSkybox;
     public ComputeShader BrightsCompute;
     public Material FlareMaterial;
-    public bool DrawDirect = true;
-    public bool DrawIndirect = true;
+
+    [Range(0f, 50f)]
+    public float RotationSpeed = 2f;
+
+    [Range(0f, 1f)]
+    public float RotationRange = 0.25f;
 
     [Range(0f, 2f)]
     public float LuminanceThreshold = 0.9f;
@@ -41,24 +45,24 @@ public class BrightSpotsFeature : ScriptableRendererFeature
   {
     if (!settings.IsEnabled)
     {
-      // we can do nothing this frame if we want
       return;
     }
     
+    float angle = Mathf.PI * settings.RotationRange *
+      Mathf.Sin(Time.time * settings.RotationSpeed);
+
     // Gather up any extra information our pass will need.
     myRenderPass.Setup(
       renderer.cameraColorTarget,
       renderer.cameraDepth,
       settings.LuminanceThreshold,
-      settings.DrawDirect,
-      settings.DrawIndirect
+      angle
     );
 
     //TODO: split into a sampling and a drawing pass
     // sample before skybox, draw before post-process
 
     // Ask the renderer to add our pass.
-    // Could queue up multiple passes and/or pick passes to use
     renderer.EnqueuePass(myRenderPass);
   }
 }
