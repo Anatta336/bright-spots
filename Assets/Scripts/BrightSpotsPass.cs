@@ -9,64 +9,71 @@ class BrightSpotsPass : ScriptableRenderPass
 
   ComputeShader brightsCompute;
   Material flareMaterial;
-  ComputeBuffer brightsBuffer;
+  ComputeBuffer brightPoints;
   ComputeBuffer drawArgsBuffer;
 
   // These are needed in Execute but aren't directly available there, so store.
   // But be aware they're not guaranteed valid after the current pass is complete.
   RenderTargetIdentifier cameraColorIdent;
-  RenderTargetIdentifier cameraDepthIdent;
   RenderTextureDescriptor cameraTextureDescriptor;
+  bool isUsingMSAA = false;
+  
   float luminanceThreshold;
   float angle;
 
   // store these so we only have to look them up once
   int findBrightsKernel,
-    colourTexID,
-    textureSizeXID,
-    textureSizeYID,
+    sourceTextureID,
     brightQuadsID,
     luminanceThresholdID,
+    screenSizeXID,
+    screenSizeYID,
     angleID,
-    widthRatioID;
+    widthRatioID,
+    resolvedCameraColourID;
   int groupSizeX, groupSizeY;
-
-  RenderTexture tempRT;
 
   public BrightSpotsPass(string profilerTag,
     RenderPassEvent renderPassEvent, ComputeShader brightsCompute,
     Material flareMaterial)
   {
-    Debug.Log("Construct BrightSpotsPass");
-
     this.profilerTag = profilerTag;
     this.renderPassEvent = renderPassEvent;
     this.brightsCompute = brightsCompute;
     this.flareMaterial = flareMaterial;
 
     findBrightsKernel = brightsCompute.FindKernel("FindBrights");
-    colourTexID = Shader.PropertyToID("_colourTex");
-    textureSizeXID = Shader.PropertyToID("_textureSizeX");
-    textureSizeYID = Shader.PropertyToID("_textureSizeY");
-    brightQuadsID = Shader.PropertyToID("_brightQuads");
+    sourceTextureID = Shader.PropertyToID("_sourceTexture");
+    brightQuadsID = Shader.PropertyToID("_brightPoints");
     luminanceThresholdID = Shader.PropertyToID("_luminanceThreshold");
+    screenSizeXID = Shader.PropertyToID("_screenSizeX");
+    screenSizeYID = Shader.PropertyToID("_screenSizeY");
     angleID = Shader.PropertyToID("_angle");
     widthRatioID = Shader.PropertyToID("_widthRatio");
+    resolvedCameraColourID = Shader.PropertyToID("_resolvedCameraColour");
 
+    // fetch the numthreads values of the kernel (assume z is 1 so ignore it)
     brightsCompute.GetKernelThreadGroupSizes(findBrightsKernel,
       out uint sizeX, out uint sizeY, out var _);
     groupSizeX = (int)sizeX;
     groupSizeY = (int)sizeY;
 
-    //TODO: buffer size here is arbitrary, decide on a maximum and enforce that
-    brightsBuffer = new ComputeBuffer(100000, sizeof(float) * 16, ComputeBufferType.Append);
+    // I can't find a good place to Dispose() these ComputeBuffers. When in editor mode
+    // this pass can be recreated many times, leading to them being garbage collected and
+    // triggering a warning.
+    // They could be recreated every frame but I suspect that'll be slower with the only
+    // apparent gain being to avoid a warning from Unity.
+
+    // buffer size here is arbitrary, if hitting the max is likely consider picking which
+    // bright points are culled by something not totally arbitrary.
+    brightPoints = new ComputeBuffer(1000, sizeof(float) * 8, ComputeBufferType.Append);
 
     // a buffer used as draw arguments for an indirect call must be created as the IndirectArguments type.
     drawArgsBuffer = new ComputeBuffer(4, sizeof(uint), ComputeBufferType.IndirectArguments);
 
     drawArgsBuffer.SetData(new uint[] {
       6, // vertices per instance
-      0, // instance count (will be set from brightsBuffer counter) 
+      0, // instance count (will be set from brightPoints counter) 
       0, // byte offset of first vertex
       0, // byte offset of first instance
     });
@@ -74,12 +81,10 @@ class BrightSpotsPass : ScriptableRenderPass
 
   public void Setup(
     RenderTargetIdentifier cameraColorIdent,
-    RenderTargetIdentifier cameraDepthIdent,
     float luminanceThreshold,
     float angle)
   {
     this.cameraColorIdent = cameraColorIdent;
-    this.cameraDepthIdent = cameraDepthIdent;
     this.luminanceThreshold = luminanceThreshold;
     this.angle = angle;
   }
@@ -87,8 +92,19 @@ class BrightSpotsPass : ScriptableRenderPass
   // called each frame before Execute, use it to set up things the pass will need
   public override void Configure(CommandBuffer cmd, RenderTextureDescriptor cameraTextureDescriptor)
   {
+    // reset the bright quads counter, effectively clearing the append buffer
+    brightPoints.SetCounterValue(0);
+
     this.cameraTextureDescriptor = cameraTextureDescriptor;
-    brightsBuffer.SetCounterValue(0);
+    
+    isUsingMSAA = cameraTextureDescriptor.msaaSamples > 1;
+    if (isUsingMSAA)
+    {
+      // RenderTextureDescriptor is a struct, so changing resolvedDescriptor.msaa doesn't change cameraTextureDescriptor
+      RenderTextureDescriptor resolvedDescriptor = cameraTextureDescriptor;
+      resolvedDescriptor.msaaSamples = 1;
+      cmd.GetTemporaryRT(resolvedCameraColourID, resolvedDescriptor);
+    }
   }
 
   public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
@@ -97,34 +113,47 @@ class BrightSpotsPass : ScriptableRenderPass
     CommandBuffer cmd = CommandBufferPool.Get(profilerTag);
     cmd.Clear();
 
-    // compute shader to find bright pixels anywhere on the image
-    // when it finds a bright pixel, build the vertices of a two triangle mesh in brightsBuffer
+    // if using MSAA we should resolve before looking for bright spots
+    if (isUsingMSAA)
+    {
+      RenderTargetIdentifier resolvedTargetIdent = new RenderTargetIdentifier(resolvedCameraColourID);
+      cmd.Blit(cameraColorIdent, resolvedTargetIdent);
+      cmd.SetComputeTextureParam(brightsCompute, findBrightsKernel, sourceTextureID, resolvedTargetIdent);
+    }
+    else
+    {
+      // if not using MSAA we can directly read from the camera's render target
+      cmd.SetComputeTextureParam(brightsCompute, findBrightsKernel, sourceTextureID, cameraColorIdent);
+    }
 
-    cmd.SetComputeTextureParam(brightsCompute, findBrightsKernel, colourTexID, cameraColorIdent);
-    cmd.SetComputeIntParam(brightsCompute, textureSizeXID, cameraTextureDescriptor.width);
-    cmd.SetComputeIntParam(brightsCompute, textureSizeYID, cameraTextureDescriptor.height);
-    cmd.SetComputeBufferParam(brightsCompute, findBrightsKernel, brightQuadsID, brightsBuffer);
+    // Compute shader to find brightest pixels, limited to one per group thread region.
+    // When it finds a bright pixel record its details in the brightPoints buffer
+    cmd.SetComputeBufferParam(brightsCompute, findBrightsKernel, brightQuadsID, brightPoints);
     cmd.SetComputeFloatParam(brightsCompute, luminanceThresholdID, luminanceThreshold);
+
+    // calculation of thread groups ensures the whole screen is covered
     cmd.DispatchCompute(brightsCompute, findBrightsKernel,
       Mathf.CeilToInt(cameraTextureDescriptor.width / groupSizeX),
       Mathf.CeilToInt(cameraTextureDescriptor.height / groupSizeY),
       1
     );
 
-    // put brightQuads count into instanceCount slot of drawArgsBuffer
-    cmd.CopyCounterValue(brightsBuffer, drawArgsBuffer, sizeof(uint));
+    // put brightPoints count into instanceCount slot of drawArgsBuffer
+    cmd.CopyCounterValue(brightPoints, drawArgsBuffer, sizeof(uint));
     
-    // because we were reading from cameraColorIdent, need to set it back to being render target
+    // earlier resolve Blit may have changed render target, so set it back
     cmd.SetRenderTarget(cameraColorIdent);
     
-    // float widthRatio = renderingData.cameraData.cameraTargetDescriptor.width /
-    //   renderingData.cameraData.cameraTargetDescriptor.height;
-
     // draw the quads described by brightsCompute
     MaterialPropertyBlock properties = new MaterialPropertyBlock();
-    properties.SetBuffer(brightQuadsID, brightsBuffer);
+    properties.SetBuffer(brightQuadsID, brightPoints);
     properties.SetFloat(angleID, angle);
     properties.SetFloat(widthRatioID, renderingData.cameraData.camera.aspect);
+    properties.SetFloat(screenSizeXID, cameraTextureDescriptor.width);
+    properties.SetFloat(screenSizeYID, cameraTextureDescriptor.height);
+
+    // it would make sense to use MeshTopology.Quads as we're drawing quads, but Unity docs say:
+    // "quad topology is emulated on many platforms, so it's more efficient to use a triangular mesh."
     cmd.DrawProceduralIndirect(Matrix4x4.identity, flareMaterial, 0, MeshTopology.Triangles,
       drawArgsBuffer, 0, properties);
 

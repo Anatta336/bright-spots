@@ -30,8 +30,7 @@ Shader "Custom/Flare"
       #pragma fragment frag
       #pragma target 5.0
         
-      // #include "UnityCG.cginc"
-      #include "BrightQuad.hlsl"
+      #include "BrightPoint.hlsl"
 
       #define PI 3.1415926535
 
@@ -42,16 +41,15 @@ Shader "Custom/Flare"
         float2 uv : TEXCOORD1;
       };
 
-      // although this was built as an AppendBuffer, we can access it like normal
-      StructuredBuffer<BrightQuad> _brightQuads;
-
-      // DX9 style texture sampling
-      // sampler2D _flareSprite;
+      // although this was built as an AppendBuffer, we can still bind and access it like normal
+      StructuredBuffer<BrightPoint> _brightPoints;
 
       // DX11 style texture sampling
       Texture2D<float> _flareSprite;
       SamplerState sampler_flareSprite;
 
+      float _screenSizeX;
+      float _screenSizeY;
       float _angle;
       float _widthRatio;
       float _opacity;
@@ -59,20 +57,31 @@ Shader "Custom/Flare"
       float _maxSize;
       float _magnitudeForMax;
 
-      float2 PositionFromMiddle(BrightQuad quad, int vertexID)
+      static float2 uvByVertexID[6] =
       {
-        float rotation = _angle;
-        if (vertexID == 0)
-          rotation += 0.5 * PI;
-        else if (vertexID == 1 || vertexID == 4)
-          rotation += 0.0;
-        else if (vertexID == 2 || vertexID == 3)
-          rotation += 1.0 * PI;
-        else if (vertexID == 5)
-          rotation += 1.5 * PI;
+        float2(0.0, 1.0),
+        float2(1.0, 1.0),
+        float2(0.0, 0.0),
+        float2(0.0, 0.0),
+        float2(1.0, 1.0),
+        float2(1.0, 0.0)
+      };
+      static float angleByVertexID[6] =
+      {
+        0.5 * PI,
+        0.0 * PI,
+        1.0 * PI,
+        1.0 * PI,
+        0.0 * PI,
+        1.5 * PI
+      };
 
-        float size = lerp(_minSize, _maxSize, saturate(quad.magnitude / _magnitudeForMax));
+      float2 PositionFromBrightPoint(BrightPoint brightPoint, int vertexID)
+      {
+        float rotation = angleByVertexID[vertexID] + _angle;
+        float size = lerp(_minSize, _maxSize, saturate(brightPoint.magnitude / _magnitudeForMax));
 
+        // create offset by rotating size
         float s = sin(rotation);
         float c = cos(rotation);
         float2x2 rMatrix = float2x2(c, -s, s, c);
@@ -80,60 +89,32 @@ Shader "Custom/Flare"
         rMatrix += 0.5;
         rMatrix = rMatrix * 2 - 1;
         float2 offset = mul(size.xx, rMatrix);
+
+        // correct for aspect ratio so quad is square when displayed
         offset.x /= _widthRatio;
 
-        return quad.middle + offset;
+        float2 middle = float2(
+          (float(brightPoint.middle.x) / _screenSizeX) * 2.0 - 1.0,
+          (1.0 - (float(brightPoint.middle.y) / _screenSizeY)) * 2.0 - 1.0
+        );
+
+        return middle + offset;
       }
 
-      float2 UvFromQuad(int vertexID)
-      {
-        if (vertexID == 0) {
-          return float2(0.0, 1.0);
-        }
-        else if (vertexID == 1) {
-          return float2(1.0, 1.0);
-        }
-        else if (vertexID == 2) {
-          return float2(0.0, 0.0);
-        }
-        else if (vertexID == 3) {
-          return float2(0.0, 0.0);
-        }
-        else if (vertexID == 4) {
-          return float2(1.0, 1.0);
-        }
-        else {
-          return float2(1.0, 0.0);
-        }
-      }
-
-      // use system-value semantics to know where on the _brightQuads buffer we should read from
+      // use system-value semantics to know where on the _brightPoints buffer we should read from
       v2f vert (uint vertexID : SV_VertexID, uint instanceID : SV_InstanceID)
       {
-        BrightQuad quad = _brightQuads[instanceID];
-
-        /*
-          v0 ──── v1,v4
-          │      ╱ │
-          │     ╱  │
-          │    ╱   │
-          │   ╱    │
-          │  ╱     │
-          │ ╱      │
-        v2,v3 ───  v5
-        */
-
-        float2 pos = PositionFromMiddle(quad, vertexID);
-        float2 uv = UvFromQuad(vertexID);
-
         v2f o;
+
+        BrightPoint brightPoint = _brightPoints[instanceID];
+        float2 pos = PositionFromBrightPoint(brightPoint, vertexID);
 
         // reminder: SV_POSITION coming out of vertex shader is in clip space, and will be divided through by .w
         // (so set .w to 1.0 to make it stay still)
         // we're not doing depth testing, so just make sure .z is within clip space
         o.position = float4(pos.x, pos.y, 0.5, 1.0);
-        o.uv = uv;
-        o.colour = quad.colour;
+        o.uv = uvByVertexID[vertexID];
+        o.colour = brightPoint.colour;
         return o;
       }
 

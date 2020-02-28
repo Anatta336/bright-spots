@@ -4,7 +4,7 @@ using UnityEngine.Rendering.Universal;
 public class BrightSpotsFeature : ScriptableRendererFeature
 {
   [System.Serializable]
-  public class MyFeatureSettings
+  public class BrightSpotsSettings
   {
     // we're free to put whatever we want here, public fields will be exposed in the inspector
     public bool IsEnabled = true;
@@ -23,16 +23,13 @@ public class BrightSpotsFeature : ScriptableRendererFeature
   }
 
   // MUST be named "settings" (lowercase) to be shown in the Render Features inspector
-  public MyFeatureSettings settings = new MyFeatureSettings();
+  public BrightSpotsSettings settings = new BrightSpotsSettings();
 
-  RenderTargetHandle renderTextureHandle;
-  BrightSpotsPass myRenderPass;
+  BrightSpotsPass brightSpotsPass;
 
   public override void Create()
   {
-    Debug.Log("Create() BrightSpotsFeature");
-
-    myRenderPass = new BrightSpotsPass(
+    brightSpotsPass = new BrightSpotsPass(
       "Bright Spots",
       settings.WhenToInsert,
       settings.BrightsCompute,
@@ -52,17 +49,13 @@ public class BrightSpotsFeature : ScriptableRendererFeature
       Mathf.Sin(Time.time * settings.RotationSpeed);
 
     // Gather up any extra information our pass will need.
-    myRenderPass.Setup(
+    brightSpotsPass.Setup(
       renderer.cameraColorTarget,
-      renderer.cameraDepth,
       settings.LuminanceThreshold,
       angle
     );
 
-    //TODO: split into a sampling and a drawing pass
-    // sample before skybox, draw before post-process
-
     // Ask the renderer to add our pass.
-    renderer.EnqueuePass(myRenderPass);
+    renderer.EnqueuePass(brightSpotsPass);
   }
 }

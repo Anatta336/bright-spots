@@ -1,39 +1,24 @@
 // note that GROUP_SIZE has a significant impact on how the results look
-#define GROUP_SIZE 12
+#define GROUP_SIZE 8
 
-#include "BrightQuad.hlsl"
+#include "BrightPoint.hlsl"
 
-Texture2D<float3> _colourTex;
-int _textureSizeX;
-int _textureSizeY;
-AppendStructuredBuffer<BrightQuad> _brightQuads;
+Texture2D<float3> _sourceTexture;
+AppendStructuredBuffer<BrightPoint> _brightPoints;
 float _luminanceThreshold;
 
 float CalculateLuminance(float3 colourLinear)
 {
+  // https://en.wikipedia.org/wiki/Relative_luminance
   return colourLinear.x * 0.2126 +
     colourLinear.y * 0.7152 +
     colourLinear.z * 0.0722;
 }
 
-BrightQuad MakeBrightQuad(int2 positionTexel, float3 colour, float luminance)
+BrightPoint MakeBrightPoint(int2 positionTexel, float3 colour, float luminance)
 {
-  /*
-    v0 ──── v1,v4
-    │      ╱ │
-    │     ╱  │
-    │    ╱   │
-    │   ╱    │
-    │  ╱     │
-    │ ╱      │
-  v2,v3 ───  v5
-  */
-
-  BrightQuad p;
-  p.middle = float2(
-    (float(positionTexel.x) / _textureSizeX) * 2.0 - 1.0,
-    (1.0 - (float(positionTexel.y) / _textureSizeY)) * 2.0 - 1.0
-  );
+  BrightPoint p;
+  p.middle = positionTexel;
   p.magnitude = (luminance - _luminanceThreshold) / _luminanceThreshold;
   p.colour = colour;
   p.padding = luminance.xx;
@@ -41,35 +26,40 @@ BrightQuad MakeBrightQuad(int2 positionTexel, float3 colour, float luminance)
 }
 
 // groupshared variables are accessible by every thread in a group
-groupshared uint brightestLuminanceUint = 0;
-groupshared float3 colourOfBrightest;
-groupshared int2 texelPosOfBrightest;
-
+// In Shader Model 5 any thread can write to any location in these arrays,
+// which means we can make a big mess if we want to. In our case each thread
+// will write to just one location in each array.
 groupshared float cachedLuminance[GROUP_SIZE][GROUP_SIZE];
 groupshared float3 cachedColour[GROUP_SIZE][GROUP_SIZE];
-
-#define LUMINANCE_TO_UINT 10000000
 
 #pragma kernel FindBrights
 [numthreads(GROUP_SIZE, GROUP_SIZE, 1)]
 void FindBrights (uint3 globalId : SV_DispatchThreadID, uint3 localId : SV_GroupThreadID, uint3 groupId : SV_GroupID)
 {
-  // every pixel gets its luminance calculated and stored by a thread each
-  float3 colourHere = _colourTex[globalId.xy];
+  // Those three system-value semantics let us know which thread we're in.
+
+  // every pixel gets its luminance calculated and stored by one thread each
+  float3 colourHere = _sourceTexture[globalId.xy];
   float luminanceHere = CalculateLuminance(colourHere);
+
   cachedColour[localId.x][localId.y] = colourHere;
   cachedLuminance[localId.x][localId.y] = luminanceHere;
 
-  // wait for everyone to write to cache
+  // wait for every thread in this group to write their values
   GroupMemoryBarrier();
 
-  // all but one thread will stop here
+  // All but one thread will stop here.
+  // This is not ideal. The stopped threads will be sitting idle on the
+  // GPU waiting for the one final thread per group to finish its work.
   if (!(localId.x == 0 && localId.y == 0))
   {
     return;
   }
   
-  // the one remaining thread finds the highest luminance in the group
+  // The one remaining thread finds the highest luminance in the group.
+  // As said above, having one thread doing a load more work than the rest
+  // isn't great. But it should still be faster than if a single thread were
+  // accessing the texture.
   bool foundBright = false;
   float brightest = _luminanceThreshold;
   float3 brightestColour;
@@ -89,7 +79,7 @@ void FindBrights (uint3 globalId : SV_DispatchThreadID, uint3 localId : SV_Group
 
   if (foundBright)
   {
-    _brightQuads.Append(MakeBrightQuad(
+    _brightPoints.Append(MakeBrightPoint(
       int2(
         groupId.x * GROUP_SIZE + brightestLocation.x,
         groupId.y * GROUP_SIZE + brightestLocation.y),

@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: ForwardRenderer
   m_EditorClassIdentifier: 
   m_RendererFeatures:
+  - {fileID: 6778340959153819950}
   - {fileID: 3191713835263483193}
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}
   shaders:
@@ -49,9 +50,24 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   settings:
     IsEnabled: 1
-    WhenToInsert: 400
+    WhenToInsert: 1000
     BrightsCompute: {fileID: 7200000, guid: c945adddacad82c4abd2f78845e9baad, type: 3}
     FlareMaterial: {fileID: 2100000, guid: 39ede5230177ffe4d908913aa7282876, type: 2}
-    DrawDirect: 1
-    DrawIndirect: 0
-    LuminanceThreshold: 0.86
+    RotationSpeed: 2.4
+    RotationRange: 0.172
+    LuminanceThreshold: 1.28
+--- !u!114 &6778340959153819950
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5968f6829af177441be9b00c94bb8d37, type: 3}
+  m_Name: Clear
+  m_EditorClassIdentifier: 
+  settings:
+    IsEnabled: 0
+    WhenToInsert: 150
