@@ -32,7 +32,7 @@ class BrightSpotsPass : ScriptableRenderPass
     widthRatioID,
     resolvedCameraColourID;
   int groupSizeX, groupSizeY;
-  readonly int regionPerThread = 8;
+  readonly int regionPerThread = 1;
 
   public BrightSpotsPass(string profilerTag,
     RenderPassEvent renderPassEvent, ComputeShader brightsCompute,
