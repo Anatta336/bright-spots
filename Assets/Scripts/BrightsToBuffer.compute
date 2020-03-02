@@ -1,5 +1,4 @@
-#define GROUP_SIZE 32
-#define REGION_PER_THREAD 8
+#define GROUP_SIZE 8
 
 #include "BrightPoint.hlsl"
 
@@ -26,30 +25,61 @@ BrightPoint MakeBrightPoint(int2 positionTexel, float3 colour, float luminance)
   return p;
 }
 
+groupshared BrightPoint cachedPoint[GROUP_SIZE][GROUP_SIZE];
+
 #pragma kernel FindBrights
 [numthreads(GROUP_SIZE, GROUP_SIZE, 1)]
 void FindBrights (uint3 globalId : SV_DispatchThreadID, uint3 localId : SV_GroupThreadID, uint3 groupId : SV_GroupID)
 {
-  // every thread examines a square of REGION_PER_THREAD x REGION_PER_THREAD texels
+  // every thread samples one texel
+  float3 colour = _sourceTexture[globalId.xy];
+  float luminance = CalculateLuminance(colour);
 
-  BrightPoint brightest = MakeBrightPoint(int2(0,0), float3(0,0,0), _luminanceThreshold);
-  bool foundBright = false;
-
-  int xStart = globalId.x * REGION_PER_THREAD;
-  int yStart = globalId.y * REGION_PER_THREAD;
-  for (int y = yStart; y < yStart + REGION_PER_THREAD; ++y)
-  for (int x = xStart; x < xStart + REGION_PER_THREAD; ++x)
+  cachedPoint[localId.x][localId.y] = MakeBrightPoint(
+    globalId.xy, colour, luminance
+  );
+  GroupMemoryBarrierWithGroupSync();
+  
+  // Rather than having just one thread do the search, share the work somewhat.
+  // There will still be at least 50% of threads inactive during this, with the
+  // higher stride values having more inactive threads
+  uint stride;
+  for (stride = 2; stride <= GROUP_SIZE; stride *= 2)
   {
-    float3 colour = _sourceTexture[int2(x, y)];
-    float luminance = CalculateLuminance(colour);
-    if (luminance > brightest.luminance)
+    if ((localId.x % stride) == 0)
     {
-      brightest = MakeBrightPoint(int2(x, y), colour, luminance);
-      foundBright = true;
+      if (cachedPoint[localId.x + stride / 2][localId.y].luminance >
+          cachedPoint[localId.x][localId.y].luminance)
+      {
+        cachedPoint[localId.x][localId.y] = cachedPoint[localId.x + stride / 2][localId.y];
+      }
     }
+    GroupMemoryBarrierWithGroupSync();
   }
-  if (foundBright)
+  // brightest in each row is now [0] of that row
+
+  for (stride = 2; stride < GROUP_SIZE; stride *= 2)
   {
-    _brightPoints.Append(brightest);
+    if (localId.x == 0 && (localId.y % stride) == 0)
+    {
+      if (cachedPoint[0][localId.y + stride / 2].luminance >
+          cachedPoint[0][localId.y].luminance)
+      {
+        cachedPoint[0][localId.y] = cachedPoint[0][localId.y + stride / 2];
+      }
+    }
+    // group sync must be outside of any conditionals, even the idle threads need to reach it
+    GroupMemoryBarrierWithGroupSync();
+  }
+  // brightest in whole group is now in [0][0]
+  
+  // final step is always only done on one thread as want to add at most one to _brightPoints
+  if (localId.x == 0 && localId.y == 0)
+  {
+    BrightPoint brightest = cachedPoint[0][0];
+    if (brightest.luminance > _luminanceThreshold)
+    {
+      _brightPoints.Append(brightest);
+    }
   }
 }

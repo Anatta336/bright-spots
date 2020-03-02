@@ -51,7 +51,7 @@ MonoBehaviour:
   settings:
     IsEnabled: 1
     WhenToInsert: 1000
-    BrightsCompute: {fileID: 7200000, guid: eafbfcb2d9ae44143a7bf293c66907c4, type: 3}
+    BrightsCompute: {fileID: 7200000, guid: c945adddacad82c4abd2f78845e9baad, type: 3}
     FlareMaterial: {fileID: 2100000, guid: 39ede5230177ffe4d908913aa7282876, type: 2}
     RotationSpeed: 2.4
     RotationRange: 0.172
