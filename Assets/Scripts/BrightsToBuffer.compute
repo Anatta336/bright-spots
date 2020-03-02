@@ -1,5 +1,5 @@
-// note that GROUP_SIZE has a significant impact on how the results look
-#define GROUP_SIZE 8
+#define GROUP_SIZE 32
+#define REGION_PER_THREAD 8
 
 #include "BrightPoint.hlsl"
 
@@ -21,70 +21,35 @@ BrightPoint MakeBrightPoint(int2 positionTexel, float3 colour, float luminance)
   p.middle = positionTexel;
   p.magnitude = (luminance - _luminanceThreshold) / _luminanceThreshold;
   p.colour = colour;
-  p.padding = luminance.xx;
+  p.luminance = luminance;
+  p.padding = 0.0;
   return p;
 }
-
-// groupshared variables are accessible by every thread in a group
-// In Shader Model 5 any thread can write to any location in these arrays,
-// which means we can make a big mess if we want to. In our case each thread
-// will write to just one location in each array.
-groupshared float cachedLuminance[GROUP_SIZE][GROUP_SIZE];
-groupshared float3 cachedColour[GROUP_SIZE][GROUP_SIZE];
 
 #pragma kernel FindBrights
 [numthreads(GROUP_SIZE, GROUP_SIZE, 1)]
 void FindBrights (uint3 globalId : SV_DispatchThreadID, uint3 localId : SV_GroupThreadID, uint3 groupId : SV_GroupID)
 {
-  // Those three system-value semantics let us know which thread we're in.
+  // every thread examines a square of REGION_PER_THREAD x REGION_PER_THREAD texels
 
-  // every pixel gets its luminance calculated and stored by one thread each
-  float3 colourHere = _sourceTexture[globalId.xy];
-  float luminanceHere = CalculateLuminance(colourHere);
-
-  cachedColour[localId.x][localId.y] = colourHere;
-  cachedLuminance[localId.x][localId.y] = luminanceHere;
-
-  // wait for every thread in this group to write their values
-  GroupMemoryBarrier();
-
-  // All but one thread will stop here.
-  // This is not ideal. The stopped threads will be sitting idle on the
-  // GPU waiting for the one final thread per group to finish its work.
-  if (!(localId.x == 0 && localId.y == 0))
-  {
-    return;
-  }
-  
-  // The one remaining thread finds the highest luminance in the group.
-  // As said above, having one thread doing a load more work than the rest
-  // isn't great. But it should still be faster than if a single thread were
-  // accessing the texture.
+  BrightPoint brightest = MakeBrightPoint(int2(0,0), float3(0,0,0), _luminanceThreshold);
   bool foundBright = false;
-  float brightest = _luminanceThreshold;
-  float3 brightestColour;
-  int2 brightestLocation;
-  for (int y = 0; y < GROUP_SIZE; ++y)
-  for (int x = 0; x < GROUP_SIZE; ++x)
+
+  int xStart = globalId.x * REGION_PER_THREAD;
+  int yStart = globalId.y * REGION_PER_THREAD;
+  for (int y = yStart; y < yStart + REGION_PER_THREAD; ++y)
+  for (int x = xStart; x < xStart + REGION_PER_THREAD; ++x)
   {
-    float luminance = cachedLuminance[x][y];
-    if (luminance > brightest)
+    float3 colour = _sourceTexture[int2(x, y)];
+    float luminance = CalculateLuminance(colour);
+    if (luminance > brightest.luminance)
     {
+      brightest = MakeBrightPoint(int2(x, y), colour, luminance);
       foundBright = true;
-      brightest = luminance;
-      brightestColour = cachedColour[x][y];
-      brightestLocation = int2(x, y);
     }
   }
-
   if (foundBright)
   {
-    _brightPoints.Append(MakeBrightPoint(
-      int2(
-        groupId.x * GROUP_SIZE + brightestLocation.x,
-        groupId.y * GROUP_SIZE + brightestLocation.y),
-      brightestColour,
-      brightest
-    ));
+    _brightPoints.Append(brightest);
   }
 }

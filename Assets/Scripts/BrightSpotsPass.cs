@@ -32,6 +32,7 @@ class BrightSpotsPass : ScriptableRenderPass
     widthRatioID,
     resolvedCameraColourID;
   int groupSizeX, groupSizeY;
+  readonly int regionPerThread = 8;
 
   public BrightSpotsPass(string profilerTag,
     RenderPassEvent renderPassEvent, ComputeShader brightsCompute,
@@ -133,8 +134,10 @@ class BrightSpotsPass : ScriptableRenderPass
 
     // calculation of thread groups ensures the whole screen is covered
     cmd.DispatchCompute(brightsCompute, findBrightsKernel,
-      Mathf.CeilToInt(cameraTextureDescriptor.width / groupSizeX),
-      Mathf.CeilToInt(cameraTextureDescriptor.height / groupSizeY),
+      Mathf.CeilToInt(
+        Mathf.Ceil((float)(cameraTextureDescriptor.width) / regionPerThread) / groupSizeX),
+      Mathf.CeilToInt(
+        Mathf.Ceil((float)(cameraTextureDescriptor.height) / regionPerThread) / groupSizeY),
       1
     );
 
